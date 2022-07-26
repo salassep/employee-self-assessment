@@ -18,7 +18,10 @@ module.exports = (sequelize, DataTypes) => {
         field: 'user_id',
         allowNull: false
       },
-    }
+    },
+    {
+      timestamps: false
+    },
   );
 
   UserRole.associate = (models) => {

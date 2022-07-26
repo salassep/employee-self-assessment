@@ -1,6 +1,7 @@
 const express = require("express");
 const userRoutes = require("./routes/userRoutes");
 const db = require('./database/models');
+const ClientError = require("./exceptions/ClientError");
 
 const app = express();
 const PORT = process.env.PORT || 8000;
