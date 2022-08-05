@@ -1,32 +1,28 @@
-'use strict';
-
 module.exports = {
-  async up (queryInterface, Sequelize) {
+  async up(queryInterface) {
     await queryInterface.bulkInsert('Roles', [
       {
-        name: 'super_admin',
-        created_at: new Date(),
-        updated_at: new Date()
-      },
-      {
+        id: 1,
         name: 'admin',
         created_at: new Date(),
-        updated_at: new Date()
+        updated_at: new Date(),
       },
       {
-        name: 'employee',
-        created_at: new Date(),
-        updated_at: new Date()
-      },
-      {
+        id: 2,
         name: 'hr',
         created_at: new Date(),
-        updated_at: new Date()
+        updated_at: new Date(),
+      },
+      {
+        id: 3,
+        name: 'employee',
+        created_at: new Date(),
+        updated_at: new Date(),
       },
     ]);
   },
 
-  async down (queryInterface, Sequelize) {
+  async down(queryInterface) {
     await queryInterface.bulkDelete('Roles', null, {});
-  }
+  },
 };

@@ -1,100 +1,134 @@
-const UserServices = require('../services/UserServices');
-const ClientError = require('../exceptions/ClientError');
 const autoBind = require('auto-bind');
+const UserServices = require('../services/db/UserServices');
+const AssessmentServices = require('../services/db/AssessmentServices');
+const AuthenticationServices = require('../services/db/AuthenticationServices');
+const AuthorizationError = require('../exceptions/AuthorizationError');
 
 class UserControllers {
   constructor() {
     this._service = new UserServices();
+    this._assessmentServices = new AssessmentServices();
+    this._authenticationServices = new AuthenticationServices();
     autoBind(this);
   }
 
-  async createUser(req, res) {
+  async createUser(req, res, next) {
     const { body } = req;
-
     const newUser = {
       email: body.email,
       password: body.password,
       name: body.name,
       workDate: body.workDate,
       position: body.position,
-      roleId: body.roleId
+      roleId: body.roleId,
     };
 
-    const result = await this._service.createUser(newUser);
+    try {
+      const isAdmin = await this._authenticationServices.verifyAccess(req.userId, 1);
 
-    if (result instanceof ClientError) {
-      return res.status(result.statusCode).send({
-        message: result.message
+      if (!isAdmin) {
+        throw new AuthorizationError('You don\'t have an access');
+      }
+
+      const result = await this._service.createUser(newUser);
+      return res.status(201).send({
+        status: 'OK',
+        data: result,
       });
+    } catch (err) {
+      return next(err);
     }
-
-    return res.status(201).send({
-      status: "OK", 
-      data: result
-    });
   }
 
   async getAllUsers(req, res) {
     const result = await this._service.getAllUsers();
 
     return res.status(201).send({
-      status: "OK", 
-      data: result
+      status: 'OK',
+      data: result,
     });
   }
 
-  async getUserById(req, res) {
-    const result = await this._service.getUserById(req.params.id);
+  async getUsersByRole(req, res, next) {
+    try {
+      const isEmployee = await this._authenticationServices.verifyAccess(req.userId, 3);
 
-    return res.status(201).send({
-      status: "OK", 
-      data: result
-    });
+      if (isEmployee) {
+        throw new AuthorizationError('You don\'t have an access');
+      }
+
+      const result = await this._service.getUsersByRole(req.params.roleName);
+
+      return res.status(201).send({
+        status: 'OK',
+        data: result,
+      });
+    } catch (err) {
+      return next(err);
+    }
   }
 
-  async updateUser(req, res) {
+  async getUserById(req, res, next) {
+    try {
+      const result = await this._service.getUserById(req.params.id);
+
+      return res.status(201).send({
+        status: 'OK',
+        data: result,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+
+  async updateUser(req, res, next) {
     const { params, body } = req;
-
     const newData = {
       email: body.email,
-      password: body.password,
       name: body.name,
       workDate: body.workDate,
       position: body.position,
-      roleId: body.roleId
     };
 
-    const result = await this._service.updateUser(params.id, newData);
+    try {
+      let result = {};
+      const isAdmin = await this._authenticationServices.verifyAccess(req.userId, 1);
 
-    if (result instanceof ClientError) {
-      return res.status(result.statusCode).send({
-        message: result.message
+      if (params.id === req.userId || isAdmin) {
+        result = await this._service.updateUser(params.id, newData);
+      } else {
+        throw new AuthorizationError('You don\'t have an access');
+      }
+
+      return res.status(201).send({
+        status: 'OK',
+        data: result,
       });
+    } catch (err) {
+      return next(err);
     }
-
-    return res.status(201).send({
-      status: "OK", 
-      data: result
-    });
-
   }
 
-  async deleteUser(req, res) {
-    const result = await this._service.deleteUser(req.params.id);
+  async deleteUser(req, res, next) {
+    try {
+      const isAdmin = await this._authenticationServices.verifyAccess(req.userId, 1);
 
-    if (result instanceof ClientError) {
-      return res.status(result.statusCode).send({
-        message: result.message
+      if (!isAdmin) {
+        throw new AuthorizationError('You don\'t have an access');
+      }
+
+      const result = await this._service.deleteUser(req.params.id);
+
+      await this._assessmentServices.deleteEmployeeAssessments(req.params.id);
+
+      return res.status(201).send({
+        status: 'OK',
+        data: result,
       });
+    } catch (err) {
+      return next(err);
     }
-
-    return res.status(201).send({
-      status: "OK", 
-      data: result
-    });
-
   }
 }
-                                                                                                                                                                                                                                                                                  
 
 module.exports = UserControllers;

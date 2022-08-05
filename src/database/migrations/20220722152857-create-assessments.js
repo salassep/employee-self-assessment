@@ -1,4 +1,3 @@
-'use strict';
 module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable('Assessments', {
@@ -9,11 +8,11 @@ module.exports = {
       },
       point: {
         type: Sequelize.INTEGER,
-        allowNull: false,                                                                                                                                    
+        allowNull: false,
       },
       period: {
         type: Sequelize.DATEONLY,
-        allowNull: false,                                                                                                                                    
+        allowNull: false,
       },
       created_at: {
         type: Sequelize.DATE,
@@ -28,7 +27,7 @@ module.exports = {
       },
     });
   },
-  async down(queryInterface, Sequelize) {
+  async down(queryInterface) {
     await queryInterface.dropTable('Assessments');
-  }
+  },
 };

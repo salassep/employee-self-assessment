@@ -1,6 +1,8 @@
+const bcrypt = require('bcrypt');
+
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define(
-    "Users", 
+    'Users',
     {
       userId: {
         type: DataTypes.UUID,
@@ -14,22 +16,53 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         validate: {
           isEmail: {
-            msg: "Not an email"
-          }
-        }                                                                                                                                    
+            msg: 'Not an email',
+          },
+          notNull: {
+            msg: 'Email is required',
+          },
+        },
       },
       password: {
         type: DataTypes.STRING,
         allowNull: false,
+        validate: {
+          notNull: {
+            msg: 'Password is required',
+          },
+          set(value) {
+            if (value.length >= 5) {
+              this.setDataValue('password', bcrypt.hashSync(value, 10));
+            } else {
+              throw new Error('Password must be at least 5 characters');
+            }
+          },
+        },
       },
       name: {
         type: DataTypes.STRING,
         allowNull: false,
+        validate: {
+          notNull: {
+            msg: 'Name is required',
+          },
+          notEmpty: {
+            msg: 'Name is required',
+          },
+        },
       },
       workDate: {
         type: DataTypes.DATEONLY,
         allowNull: false,
-        field: 'work_date'
+        field: 'work_date',
+        validate: {
+          notNull: {
+            msg: 'Work date is required',
+          },
+          notEmpty: {
+            msg: 'Work date is required',
+          },
+        },
       },
       position: {
         type: DataTypes.STRING,
@@ -48,7 +81,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DATE,
         field: 'deleted_at',
       },
-    }
+    },
+    {
+      paranoid: true,
+    },
   );
 
   return User;

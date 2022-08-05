@@ -1,51 +1,80 @@
-const UserRoleServices = require('../services/UserRoleServices');
-const ClientError = require('../exceptions/ClientError');
 const autoBind = require('auto-bind');
+const UserRoleServices = require('../services/db/UserRoleServices');
+const AuthenticationServices = require('../services/db/AuthenticationServices');
+const AuthorizationError = require('../exceptions/AuthorizationError');
 
 class UserRoleControllers {
   constructor() {
     this._service = new UserRoleServices();
+    this._authenticationServices = new AuthenticationServices();
     autoBind(this);
   }
 
-  async addRoleToUser(req, res) {
-    const result = await this._service.createUserRole(req.params.userId, req.params.roleId);
+  async addRoleToUser(req, res, next) {
+    try {
+      const isAdmin = await this._authenticationServices.verifyAccess(req.userId, 1);
 
-    if (result instanceof ClientError) {
-      return res.status(result.statusCode).send({
-        message: result.message
+      if (!isAdmin) {
+        throw new AuthorizationError('You don\'t have an access');
+      }
+
+      const result = await this._service.createUserRole(req.params.userId, req.params.roleId);
+
+      return res.status(201).send({
+        status: 'OK',
+        data: result,
       });
+    } catch (err) {
+      return next(err);
     }
-
-    return res.status(201).send({
-      status: "OK", 
-      data: result
-    });
   }
 
   async getRoles(req, res) {
     const result = await this._service.getRoles();
 
     return res.status(201).send({
-      status: "OK", 
-      data: result
+      status: 'OK',
+      data: result,
     });
   }
 
-  async deleteUserRole(req, res) {
-    const result = await this._service.deleteUserRole(req.params.userId, req.params.roleId);
+  async updateUserRole(req, res, next) {
+    try {
+      const isAdmin = await this._authenticationServices.verifyAccess(req.userId, 1);
 
-    if (result instanceof ClientError) {
-      return res.status(result.statusCode).send({
-        message: result.message
+      if (!isAdmin) {
+        throw new AuthorizationError('You don\'t have an access');
+      }
+
+      const result = await this._service.updateUserRole(req.params.userRoleId, req.body.roleId);
+
+      return res.status(201).send({
+        status: 'OK',
+        data: result,
       });
+    } catch (err) {
+      return next(err);
     }
-
-    return res.status(201).send({
-      status: "OK", 
-      data: result
-    });
   }
-};
+
+  async deleteUserRole(req, res, next) {
+    try {
+      const isAdmin = await this._authenticationServices.verifyAccess(req.userId, 1);
+
+      if (!isAdmin) {
+        throw new AuthorizationError('You don\'t have an access');
+      }
+
+      const result = await this._service.deleteUserRole(req.params.userId, req.params.roleId);
+
+      return res.status(201).send({
+        status: 'OK',
+        data: result,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+}
 
 module.exports = UserRoleControllers;

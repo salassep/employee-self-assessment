@@ -1,7 +1,5 @@
-'use strict';
-
 module.exports = {
-  async up (queryInterface, Sequelize) {
+  async up(queryInterface, Sequelize) {
     await queryInterface.addColumn(
       'Assessments',
       'criterion_id',
@@ -9,18 +7,18 @@ module.exports = {
         type: Sequelize.INTEGER,
         references: {
           model: 'Criteria',
-          key: 'id'
+          key: 'id',
         },
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE',
-      }
+      },
     );
   },
 
-  async down (queryInterface, Sequelize) {
+  async down(queryInterface) {
     await queryInterface.removeColumn(
       'Assessments',
-      'criterion_id'
+      'criterion_id',
     );
-  }
+  },
 };
