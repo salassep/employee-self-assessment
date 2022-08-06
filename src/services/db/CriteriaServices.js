@@ -1,8 +1,13 @@
 const db = require('../../database/models');
 const InvariantError = require('../../exceptions/InvariantError');
 const NotFoundError = require('../../exceptions/NotFoundError');
+const CacheServices = require('../redis/CacheServices');
 
 class CriteriaServices {
+  constructor() {
+    this._cacheServices = new CacheServices();
+  }
+
   async createCriteria(newData) {
     const createdAt = new Date();
     const updatedAt = createdAt;
@@ -16,6 +21,8 @@ class CriteriaServices {
         updatedAt,
       });
 
+      await this._cacheServices.delete('criteria');
+
       return result;
     } catch (err) {
       throw new InvariantError('Failed to create criteria');
@@ -23,9 +30,14 @@ class CriteriaServices {
   }
 
   async getAllCriteria() {
-    const result = await db.Criteria.findAll();
-
-    return result;
+    try {
+      const result = await this._cacheServices.get('criteria');
+      return JSON.parse(result);
+    } catch (err) {
+      const result = await db.Criteria.findAll();
+      await this._cacheServices.set('criteria', JSON.stringify(result));
+      return result;
+    }
   }
 
   async getCriterionById(criterionId) {
@@ -57,6 +69,8 @@ class CriteriaServices {
         throw new NotFoundError('Criteria not found');
       }
 
+      await this._cacheServices.delete('criteria');
+
       return newData;
     } catch (err) {
       if (err instanceof NotFoundError) throw err;
@@ -72,6 +86,8 @@ class CriteriaServices {
     if (!result) {
       throw new NotFoundError('Criteria not found');
     }
+
+    await this._cacheServices.delete('criteria');
 
     return result;
   }

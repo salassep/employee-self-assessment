@@ -2,8 +2,13 @@ const { Op } = require('sequelize');
 const db = require('../../database/models');
 const InvariantError = require('../../exceptions/InvariantError');
 const NotFoundError = require('../../exceptions/NotFoundError');
+const CacheServices = require('../redis/CacheServices');
 
 class UserRoleServices {
+  constructor() {
+    this._cacheServices = new CacheServices();
+  }
+
   async checkRoleExist(roleId) {
     const result = await db.Roles.count({
       where: {
@@ -71,11 +76,12 @@ class UserRoleServices {
 
   async getRoles() {
     try {
-      const result = await db.Roles.findAll();
-
-      return result;
+      const result = await this._cacheServices.get('roles');
+      return JSON.parse(result);
     } catch (err) {
-      return new NotFoundError('Failed to get roles');
+      const result = await db.Roles.findAll();
+      await this._cacheServices.set('roles', JSON.stringify(result));
+      return result;
     }
   }
 

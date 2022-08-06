@@ -1,10 +1,12 @@
-/* eslint-disable no-underscore-dangle */
 const autoBind = require('auto-bind');
 const AssessmentServices = require('../services/db/AssessmentServices');
+const AuthenticationServices = require('../services/db/AuthenticationServices');
+const AuthorizationError = require('../exceptions/AuthorizationError');
 
 class AssessmentControllers {
   constructor() {
     this._service = new AssessmentServices();
+    this._authenticationServices = new AuthenticationServices();
     autoBind(this);
   }
 
@@ -30,13 +32,61 @@ class AssessmentControllers {
     }
   }
 
-  async getAllAssessments(req, res) {
-    const result = await this._service.getAllAssessments();
+  async getAllAssessments(req, res, next) {
+    try {
+      const isHr = await this._authenticationServices.verifyAccess(req.userId, 2);
 
-    res.status(201).send({
-      status: 'OK',
-      data: result,
-    });
+      if (!isHr) {
+        throw new AuthorizationError('You don\'t have an access');
+      }
+
+      const result = await this._service.getAllAssessments();
+
+      return res.status(201).send({
+        status: 'OK',
+        data: result,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+
+  async getAllAssessmentReceivers(req, res, next) {
+    try {
+      const isHr = await this._authenticationServices.verifyAccess(req.userId, 2);
+
+      if (!isHr) {
+        throw new AuthorizationError('You don\'t have an access');
+      }
+
+      const result = await this._service.getAllAssessments(true, true);
+
+      return res.status(201).send({
+        status: 'OK',
+        data: result,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+
+  async getAllAssessmentSenders(req, res, next) {
+    try {
+      const isHr = await this._authenticationServices.verifyAccess(req.userId, 2);
+
+      if (!isHr) {
+        throw new AuthorizationError('You don\'t have an access');
+      }
+
+      const result = await this._service.getAllAssessments(true, false);
+
+      return res.status(201).send({
+        status: 'OK',
+        data: result,
+      });
+    } catch (err) {
+      return next(err);
+    }
   }
 
   async getAssessmentsPerPeriod(req, res, next) {
@@ -102,9 +152,10 @@ class AssessmentControllers {
     const { params, body } = req;
 
     const newAssessment = {
-      userId: '65627920-87bb-49af-b6d3-a04ba86c2fef',
+      userId: req.userId,
       receiverId: params.employeeId,
       criterionId: body.criterionId,
+      period: body.period,
       point: body.point,
     };
 

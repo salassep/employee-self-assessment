@@ -2,11 +2,13 @@ const autoBind = require('auto-bind');
 const db = require('../../database/models');
 const InvariantError = require('../../exceptions/InvariantError');
 const UserRoleServices = require('./UserRoleServices');
+const CacheServices = require('../redis/CacheServices');
 const NotFoundError = require('../../exceptions/NotFoundError');
 
 class UserServices {
   constructor() {
     this._userRoleServices = new UserRoleServices();
+    this._cacheServices = new CacheServices();
     autoBind(this);
   }
 
@@ -31,7 +33,10 @@ class UserServices {
         updatedAt,
       });
 
-      await this._userRoleServices.createUserRole(result.userId, newUser.roleId);
+      await Promise.all([
+        this._userRoleServices.createUserRole(result.userId, newUser.roleId),
+        this._cacheServices.delete('users'),
+      ]);
 
       delete result.dataValues.password;
 
@@ -43,6 +48,9 @@ class UserServices {
 
   async getAllUsers() {
     try {
+      const result = await this._cacheServices.get('users');
+      return JSON.parse(result);
+    } catch (err) {
       const [result, userRoles] = await Promise.all([
         db.Users.findAll(),
         this._userRoleServices.getUserRoles(),
@@ -59,7 +67,7 @@ class UserServices {
         return userRolesArr;
       };
 
-      return result.map((e) => ({
+      const modelResult = result.map((e) => ({
         userId: e.userId,
         name: e.name,
         email: e.email,
@@ -70,8 +78,10 @@ class UserServices {
         deletedAt: e.deletedAt,
         roles: getArrayRole(e.userId),
       }));
-    } catch (err) {
-      return false;
+
+      await this._cacheServices.set('users', JSON.stringify(modelResult));
+
+      return modelResult;
     }
   }
 
@@ -128,6 +138,8 @@ class UserServices {
         throw new NotFoundError('User not found');
       }
 
+      await this._cacheServices.delete('users');
+
       return {
         id: userId,
         email: newData.email,
@@ -152,7 +164,10 @@ class UserServices {
       throw new NotFoundError('User not found');
     }
 
-    await this._userRoleServices.deleteUserRole(userId);
+    await Promise.all([
+      this._cacheServices.delete('users'),
+      this._userRoleServices.deleteUserRole(userId),
+    ]);
 
     return result;
   }

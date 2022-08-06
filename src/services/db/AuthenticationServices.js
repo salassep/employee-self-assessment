@@ -4,10 +4,12 @@ const NotFoundError = require('../../exceptions/NotFoundError');
 const AuthenticationError = require('../../exceptions/AuthenticationError');
 const UserRoleServices = require('./UserRoleServices');
 const InvariantError = require('../../exceptions/InvariantError');
+const CacheServices = require('../redis/CacheServices');
 
 class AuthenticationServices {
   constructor() {
     this._service = new UserRoleServices();
+    this._cacheServices = new CacheServices();
   }
 
   async signIn(authData) {
@@ -28,43 +30,55 @@ class AuthenticationServices {
       throw new AuthenticationError('Password incorrect');
     }
 
-    await db.Logs.upsert({ userId: result.userId, lastLoginAt: new Date() });
+    await Promise.all([
+      db.Logs.upsert({ userId: result.userId, lastLoginAt: new Date() }),
+      this._cacheServices.delete('logs'),
+    ]);
 
     return result;
   }
 
   async getLogs() {
-    const result = await db.Logs.findAll({
-      attributes: {
-        exclude: ['user_id'],
-      },
-      order: [['logId', 'DESC']],
-      include: [
-        {
-          model: db.Users,
-          require: true,
-          attributes: ['name', 'email'],
+    try {
+      const result = await this._cacheServices.get('logs');
+      return JSON.parse(result);
+    } catch (err) {
+      const result = await db.Logs.findAll({
+        attributes: {
+          exclude: ['user_id'],
         },
-      ],
-    });
+        order: [['logId', 'DESC']],
+        include: [
+          {
+            model: db.Users,
+            require: true,
+            attributes: ['name', 'email'],
+          },
+        ],
+      });
 
-    const setObj = new Set();
+      const setObj = new Set();
 
-    const filteredResult = result.reduce((acc, item) => {
-      if (!setObj.has(item.userId)) {
-        setObj.add(item.userId, item);
-        acc.push(item);
-      }
-      return acc;
-    }, []);
+      const filteredResult = result.reduce((acc, item) => {
+        if (!setObj.has(item.userId)) {
+          setObj.add(item.userId, item);
+          acc.push(item);
+        }
+        return acc;
+      }, []);
 
-    return filteredResult.map((e) => ({
-      logId: e.logId,
-      userId: e.userId,
-      name: e.User.name,
-      email: e.User.email,
-      lastLoginAt: e.lastLoginAt,
-    }));
+      const modelResult = filteredResult.map((e) => ({
+        logId: e.logId,
+        userId: e.userId,
+        name: e.User.name,
+        email: e.User.email,
+        lastLoginAt: e.lastLoginAt,
+      }));
+
+      await this._cacheServices.set('logs', JSON.stringify(modelResult));
+
+      return modelResult;
+    }
   }
 
   async changePassword(authData) {

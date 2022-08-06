@@ -4,10 +4,14 @@ const db = require('../../database/models');
 const InvariantError = require('../../exceptions/InvariantError');
 const NotFoundError = require('../../exceptions/NotFoundError');
 const UserServices = require('./UserServices');
+const ResultModel = require('../../utils/ResultModel');
+const CacheServices = require('../redis/CacheServices');
 
 class AssessmentServices {
   constructor() {
     this._userService = new UserServices();
+    this._resultModel = new ResultModel();
+    this._cacheServices = new CacheServices();
     autoBind(this);
   }
 
@@ -51,7 +55,7 @@ class AssessmentServices {
     }
   }
 
-  async getAllAssessments() {
+  async getAllAssessments(isShowPerUser = false, isReceivers = true) {
     const result = await db.Assessments.findAll({
       attributes: {
         exclude: ['criterion_id', 'user_id', 'receiver_id'],
@@ -84,10 +88,25 @@ class AssessmentServices {
       ],
     });
 
+    if (isShowPerUser) {
+      const users = await this._userService.getAllUsers();
+      const [months, years] = [
+        [...new Set(result.map((e) => new Date(e.period).getMonth() + 1))],
+        [...new Set(result.map((e) => new Date(e.period).getFullYear()))],
+      ];
+
+      this._resultModel.data = result;
+
+      const resultModel = isReceivers ? this._resultModel.modelPerReceiver(users, months, years)
+        : this._resultModel.modelPerSender(users, months, years);
+
+      return resultModel;
+    }
+
     return result;
   }
 
-  async getAssessmentsPerPeriod(period) {
+  async getAssessmentsPerPeriod(period, isShowPerReceiver = true) {
     const [, month, year] = period.split('-');
     const assessments = await this.getAllAssessments();
     const filteredAssessments = assessments
@@ -233,6 +252,7 @@ class AssessmentServices {
 
   async updateAssessment(newAssessment) {
     try {
+      const [, month, year] = newAssessment.period.split('-');
       const result = await db.Assessments.update(
         {
           point: newAssessment.point,
@@ -242,12 +262,21 @@ class AssessmentServices {
             userId: newAssessment.userId,
             receiverId: newAssessment.receiverId,
             criterionId: newAssessment.criterionId,
+            [Op.and]: [
+              Sequelize.where(Sequelize.fn('MONTH', Sequelize.col('period')), month),
+              Sequelize.where(Sequelize.fn('YEAR', Sequelize.col('period')), year),
+            ],
           },
         },
       );
 
+      if (result < 1) {
+        throw new NotFoundError('Assessment not found');
+      }
+
       return result;
     } catch (err) {
+      if (err instanceof NotFoundError) throw err;
       throw new InvariantError('Failed to add assessment');
     }
   }
