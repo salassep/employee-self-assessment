@@ -9,7 +9,7 @@ class ErrorControllers {
 
   static errorResponder(err, req, res, next) {
     if (err instanceof ClientError) {
-      res.status(err.statusCode).send({ status: 'Failed', msg: err.message });
+      res.status(err.statusCode).send({ statusCode: err.statusCode, status: 'Failed', msg: err.message });
     } else {
       res.status(err.statusCode).send(JSON.stringify(err, null, 4));
     }

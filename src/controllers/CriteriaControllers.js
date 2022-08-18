@@ -1,5 +1,6 @@
 const autoBind = require('auto-bind');
 const CriteriaServices = require('../services/db/CriteriaServices');
+const AssessmentServices = require('../services/db/AssessmentServices');
 const AuthenticationServices = require('../services/db/AuthenticationServices');
 const AuthorizationError = require('../exceptions/AuthorizationError');
 
@@ -7,6 +8,7 @@ class CriteriaController {
   constructor() {
     this._service = new CriteriaServices();
     this._authentificationService = new AuthenticationServices();
+    this._assessmentServices = new AssessmentServices();
     autoBind(this);
   }
 
@@ -30,6 +32,7 @@ class CriteriaController {
       }
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });
@@ -42,6 +45,7 @@ class CriteriaController {
     const result = await this._service.getAllCriteria();
 
     res.status(201).send({
+      statusCode: 201,
       status: 'OK',
       data: result,
     });
@@ -52,6 +56,7 @@ class CriteriaController {
       const result = await this._service.getCriterionById(req.params.criterionId);
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });
@@ -78,6 +83,7 @@ class CriteriaController {
       const result = await this._service.updateCriteria(newData);
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });
@@ -96,7 +102,11 @@ class CriteriaController {
 
       const result = await this._service.deleteCriteria(req.params.criterionId);
 
+      await this._assessmentServices
+        .deleteEmployeeAssessmentsCriteriaReason(req.params.criterionId);
+
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });

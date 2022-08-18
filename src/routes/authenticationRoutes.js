@@ -7,8 +7,8 @@ const authenticationControllers = new AuthenticationControllers();
 
 router.post('/signin', authenticationControllers.signIn); // Sign in
 router.post('/change-password', requireUser, authenticationControllers.changePassword); // User change password
-
 router.get('/users/logs', requireUser, authenticationControllers.getLogs); // Get login info
+router.post('/reset-pass/:userId', requireUser, authenticationControllers.resetPassword); // Admin reset password
 
 router.delete('/logout', requireUser, authenticationControllers.logOut); // Log out
 

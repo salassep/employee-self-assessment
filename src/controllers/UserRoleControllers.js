@@ -21,6 +21,7 @@ class UserRoleControllers {
       const result = await this._service.createUserRole(req.params.userId, req.params.roleId);
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });
@@ -33,6 +34,7 @@ class UserRoleControllers {
     const result = await this._service.getRoles();
 
     return res.status(201).send({
+      statusCode: 201,
       status: 'OK',
       data: result,
     });
@@ -49,6 +51,7 @@ class UserRoleControllers {
       const result = await this._service.updateUserRole(req.params.userRoleId, req.body.roleId);
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });
@@ -68,6 +71,7 @@ class UserRoleControllers {
       const result = await this._service.deleteUserRole(req.params.userId, req.params.roleId);
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });

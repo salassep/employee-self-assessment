@@ -32,6 +32,7 @@ class UserControllers {
 
       const result = await this._service.createUser(newUser);
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });
@@ -44,8 +45,17 @@ class UserControllers {
     const result = await this._service.getAllUsers();
 
     return res.status(201).send({
+      statusCode: 201,
       status: 'OK',
       data: result,
+    });
+  }
+
+  async getUserId(req, res) {
+    return res.status(201).send({
+      statusCode: 201,
+      status: 'OK',
+      data: req.userId,
     });
   }
 
@@ -60,6 +70,7 @@ class UserControllers {
       const result = await this._service.getUsersByRole(req.params.roleName);
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });
@@ -73,6 +84,7 @@ class UserControllers {
       const result = await this._service.getUserById(req.params.id);
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });
@@ -101,6 +113,7 @@ class UserControllers {
       }
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });
@@ -122,6 +135,7 @@ class UserControllers {
       await this._assessmentServices.deleteEmployeeAssessments(req.params.id);
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });

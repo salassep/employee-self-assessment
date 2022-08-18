@@ -87,7 +87,9 @@ class CriteriaServices {
       throw new NotFoundError('Criteria not found');
     }
 
-    await this._cacheServices.delete('criteria');
+    await Promise.all([
+      this._cacheServices.delete('criteria'),
+    ]);
 
     return result;
   }

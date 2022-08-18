@@ -59,9 +59,10 @@ class AssessmentControllers {
         throw new AuthorizationError('You don\'t have an access');
       }
 
-      const result = await this._service.getAllAssessments(true, true);
+      const result = await this._service.getAllAssessments(true);
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });
@@ -81,6 +82,7 @@ class AssessmentControllers {
       const result = await this._service.getAllAssessments(true, false);
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });
@@ -90,29 +92,17 @@ class AssessmentControllers {
   }
 
   async getAssessmentsPerPeriod(req, res, next) {
-    const result = await this._service.getAssessmentsPerPeriod(req.params.period);
-
-    res.status(201).send({
-      status: 'OK',
-      data: result,
-    });
-  }
-
-  async getAssessmentsPerPeriodPerReceiver(req, res, next) {
-    const result = await this._service
-      .getAssessmentsPerPeriodPerReceiver(req.params.period, req.params.receiverId);
-
-    res.status(201).send({
-      status: 'OK',
-      data: result,
-    });
-  }
-
-  async getOneEmployeeAssessment(req, res, next) {
     try {
-      const result = await this._service.getOneEmployeeAssessment(req.params.employeeId);
+      const isHr = await this._authenticationServices.verifyAccess(req.userId, 2);
+
+      if (!isHr) {
+        throw new AuthorizationError('You don\'t have an access');
+      }
+
+      const result = await this._service.getAssessmentsPerPeriod(req.params.period);
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });
@@ -121,11 +111,82 @@ class AssessmentControllers {
     }
   }
 
-  async assessmentCheckByAdmin(req, res, next) {
+  async getAssessmentsPerPeriodPerReceiver(req, res, next) {
     try {
-      const result = await this._service.assessmentsCheckByAdmin(req.params.employeeId);
+      const isHr = await this._authenticationServices.verifyAccess(req.userId, 2);
+
+      if (!isHr) {
+        throw new AuthorizationError('You don\'t have an access');
+      }
+
+      const result = await this._service.getAssessmentsPerPeriod(req.params.period, true);
 
       return res.status(201).send({
+        statusCode: 201,
+        status: 'OK',
+        data: result,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+
+  async getAssessmentsPerPeriodPerSender(req, res, next) {
+    try {
+      const isHr = await this._authenticationServices.verifyAccess(req.userId, 2);
+
+      if (!isHr) {
+        throw new AuthorizationError('You don\'t have an access');
+      }
+
+      const result = await this._service.getAssessmentsPerPeriod(req.params.period, true, false);
+
+      return res.status(201).send({
+        statusCode: 201,
+        status: 'OK',
+        data: result,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+
+  async getOneEmployeeAssessment(req, res, next) {
+    try {
+      const result = await this._service.getOneEmployeeAssessment(req.params.employeeId);
+
+      return res.status(201).send({
+        statusCode: 201,
+        status: 'OK',
+        data: result,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+
+  async getOneEmployeeAssessmentPerPeriod(req, res, next) {
+    try {
+      const result = await this._service
+        .getOneEmployeeAssessmentPerPeriod(req.params.period, req.params.employeeId);
+
+      return res.status(201).send({
+        statusCode: 201,
+        status: 'OK',
+        data: result,
+      });
+    } catch (err) {
+      return next(err);
+    }
+  }
+
+  async assessmentCheckByHr(req, res, next) {
+    try {
+      const result = await this._service
+        .assessmentsCheckByHr(req.params.period);
+
+      return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });
@@ -136,16 +197,37 @@ class AssessmentControllers {
 
   async assessmentCheckByEmployee(req, res, next) {
     try {
-      const userId = '65627920-87bb-49af-b6d3-a04ba86c2fef';
-      const result = await this._service.assessmentCheckByEmployee(userId, req.params.receiverId);
+      const result = await this._service.assessmentCheckByEmployee(req.params.period, req.userId);
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });
     } catch (err) {
       return next(err);
     }
+  }
+
+  async getAssessmentTotalAllEmployeePerPeriod(req, res) {
+    const result = await this._service.getAssessmentTotalAllEmployeePerPeriod(req.params.period);
+
+    return res.status(201).send({
+      statusCode: 201,
+      status: 'OK',
+      data: result,
+    });
+  }
+
+  async getAssessmentTotalOneEmployeePerPeriod(req, res) {
+    const result = await this._service
+      .getAssessmentTotalOneEmployeePerPeriod(req.params.period, req.params.employeeId);
+
+    return res.status(201).send({
+      statusCode: 201,
+      status: 'OK',
+      data: result,
+    });
   }
 
   async updateAssessment(req, res, next) {
@@ -163,6 +245,7 @@ class AssessmentControllers {
       const result = await this._service.updateAssessment(newAssessment);
 
       return res.status(201).send({
+        statusCode: 201,
         status: 'OK',
         data: result,
       });

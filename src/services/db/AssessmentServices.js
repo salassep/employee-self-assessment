@@ -6,12 +6,14 @@ const NotFoundError = require('../../exceptions/NotFoundError');
 const UserServices = require('./UserServices');
 const ResultModel = require('../../utils/ResultModel');
 const CacheServices = require('../redis/CacheServices');
+const CriteriaServices = require('./CriteriaServices');
 
 class AssessmentServices {
   constructor() {
     this._userService = new UserServices();
     this._resultModel = new ResultModel();
     this._cacheServices = new CacheServices();
+    this._criteriaServices = new CriteriaServices();
     autoBind(this);
   }
 
@@ -49,46 +51,56 @@ class AssessmentServices {
         updatedAt,
       });
 
+      await this._cacheServices.delete('assessments');
+
       return result;
     } catch (err) {
       throw new InvariantError('Failed to add assessment');
     }
   }
 
-  async getAllAssessments(isShowPerUser = false, isReceivers = true) {
-    const result = await db.Assessments.findAll({
-      attributes: {
-        exclude: ['criterion_id', 'user_id', 'receiver_id'],
-      },
-      include: [
-        {
-          model: db.Users,
-          require: true,
-          as: 'receiver',
-          attributes: {
-            exclude: ['createdAt', 'updatedAt', 'deletedAt', 'userId', 'password'],
-          },
+  async getAllAssessments(isModelResult = false, isReceivers = true) {
+    let result = [];
+    try {
+      const cacheResult = await this._cacheServices.get('assessments');
+      result = JSON.parse(cacheResult);
+    } catch (err) {
+      result = await db.Assessments.findAll({
+        attributes: {
+          exclude: ['criterion_id', 'user_id', 'receiver_id'],
         },
-        {
-          model: db.Users,
-          require: true,
-          as: 'sender',
-          attributes: {
-            exclude: ['createdAt', 'updatedAt', 'deletedAt', 'userId', 'password'],
+        include: [
+          {
+            model: db.Users,
+            require: true,
+            as: 'receiver',
+            attributes: {
+              exclude: ['createdAt', 'updatedAt', 'deletedAt', 'userId', 'password'],
+            },
           },
-        },
-        {
-          model: db.Criteria,
-          require: true,
-          as: 'criterion',
-          attributes: {
-            exclude: ['createdAt', 'updatedAt', 'deletedAt', 'criteriaId'],
+          {
+            model: db.Users,
+            require: true,
+            as: 'sender',
+            attributes: {
+              exclude: ['createdAt', 'updatedAt', 'deletedAt', 'userId', 'password'],
+            },
           },
-        },
-      ],
-    });
+          {
+            model: db.Criteria,
+            require: true,
+            as: 'criterion',
+            attributes: {
+              exclude: ['createdAt', 'updatedAt', 'deletedAt', 'criteriaId'],
+            },
+          },
+        ],
+      });
 
-    if (isShowPerUser) {
+      await this._cacheServices.set('assessments', JSON.stringify(result));
+    }
+
+    if (isModelResult) {
       const users = await this._userService.getAllUsers();
       const [months, years] = [
         [...new Set(result.map((e) => new Date(e.period).getMonth() + 1))],
@@ -97,7 +109,8 @@ class AssessmentServices {
 
       this._resultModel.data = result;
 
-      const resultModel = isReceivers ? this._resultModel.modelPerReceiver(users, months, years)
+      const resultModel = isReceivers
+        ? this._resultModel.modelPerReceiver(users, months, years)
         : this._resultModel.modelPerSender(users, months, years);
 
       return resultModel;
@@ -106,148 +119,192 @@ class AssessmentServices {
     return result;
   }
 
-  async getAssessmentsPerPeriod(period, isShowPerReceiver = true) {
+  async getAssessmentsPerPeriod(period, isModelResult = false, isReceivers = true) {
     const [, month, year] = period.split('-');
     const assessments = await this.getAllAssessments();
-    const filteredAssessments = assessments
-      .filter((e) => new Date(e.period).getMonth() + 1 === +month
-      && new Date(e.period).getFullYear() === +year);
+    const result = assessments
+      .filter((e) => new Date(e.period)
+        .getMonth() + 1 === +month && new Date(e.period)
+        .getFullYear() === +year);
 
-    return filteredAssessments;
-  }
+    if (isModelResult) {
+      const users = await this._userService.getAllUsers();
 
-  async getAssessmentsPerPeriodPerReceiver(period, receiverId) {
-    const [, month, year] = period.split('-');
-    const assessments = await this.getAllAssessments();
-    const filteredAssessments = assessments
-      .filter((e) => new Date(e.period).getMonth() + 1 === +month
-      && new Date(e.period).getFullYear() === +year
-      && e.receiverId === receiverId);
-    const senders = [...new Set(filteredAssessments.map((e) => e.userId))];
-    const filteredSenders = (senderId) => filteredAssessments.filter((e) => e.userId === senderId);
+      this._resultModel.data = assessments;
 
-    if (!filteredAssessments.length) return [];
+      const modelResult = isReceivers
+        ? this._resultModel.modelPerPeriodPerReceiver(users, +month, +year)
+        : this._resultModel.modelPerPeriodPerSender(users, +month, +year);
 
-    return {
-      receiverId,
-      name: filteredAssessments[0].receiver.name,
-      email: filteredAssessments[0].receiver.email,
-      period,
-      workDate: filteredAssessments[0].receiver.workDate,
-      position: filteredAssessments[0].receiver.position,
-      senders: senders.map((e) => ({
-        userId: e,
-        name: filteredSenders(e)[0].sender.name,
-        email: filteredSenders(e)[0].sender.email,
-        workDate: filteredSenders(e)[0].sender.workDate,
-        position: filteredSenders(e)[0].sender.position,
-        assessments: filteredSenders(e).map((elem) => ({
-          assessmentId: elem.assessmentId,
-          criterionId: elem.criterionId,
-          criteriaName: elem.criterion.name,
-          description: elem.criterion.description,
-          position: elem.criterion.position,
-          point: elem.point,
-          createdAt: elem.createdAt,
-          updatedAt: elem.updatedAt,
-        })),
-      })),
-    };
+      return modelResult;
+    }
+
+    return result;
   }
 
   async getOneEmployeeAssessment(employeeId) {
-    const result = await db.Assessments.findAll({
-      where: {
-        receiverId: employeeId,
-      },
-      attributes: {
-        exclude: ['criterion_id', 'user_id', 'receiver_id'],
-      },
-      include: [
-        {
-          model: db.Users,
-          require: true,
-          attributes: {
-            exclude: ['password'],
-          },
-        },
-        {
-          model: db.Criteria,
-          require: true,
-        },
-      ],
-    });
+    const [receivers, senders] = await Promise.all([
+      this.getAllAssessments(true),
+      this.getAllAssessments(true, false),
+    ]);
 
-    if (!result.length) {
-      throw new NotFoundError('Assessment not found');
-    }
-
-    const getCriteria = await this.getCriteria();
+    const filteredReceivers = receivers.find((receiver) => receiver.receiverId === employeeId);
+    const filteredSenders = senders.find((sender) => sender.senderId === employeeId);
 
     return {
-      employeeId: result[0].dataValues.User.userId,
-      name: result[0].dataValues.User.name,
-      position: result[0].dataValues.User.position,
-      period: result[0].dataValues.period,
-      assessments: getCriteria.map((e) => ({
-        criterionId: e.criteriaId,
-        criteriaName: e.name,
-        position: e.position,
-        description: e.description,
-        total: result.map((value) => {
-          if (e.criteriaId === value.criterionId) return value.point;
-          return 0;
-        }).reduce((a, b) => a + b, 0),
-      })),
+      userId: filteredReceivers.receiverId,
+      email: filteredReceivers.email,
+      name: filteredReceivers.name,
+      position: filteredReceivers.position,
+      workDate: filteredReceivers.workDate,
+      receivedAssessments: filteredReceivers.periods,
+      sendedAssessments: filteredSenders.periods,
     };
   }
 
-  async assessmentsCheckByAdmin(employeeId) {
-    const getUsers = await this._userService.getAllUsers();
-    const employeeArr = getUsers
-      .filter((e) => (e.userId !== employeeId && e.roles.length
-        ? e.roles.find((value) => value.name === 'employee')
-        : false
-      ));
+  async getOneEmployeeAssessmentPerPeriod(period, employeeId) {
+    const [receivers, senders] = await Promise.all([
+      this.getAssessmentsPerPeriod(period, true),
+      this.getAssessmentsPerPeriod(period, true, false),
+    ]);
 
-    const month = new Date().getMonth() + 1;
-    const year = new Date().getFullYear();
+    const filteredReceivers = receivers.find((receiver) => receiver.receiverId === employeeId);
+    const filteredSenders = senders.find((sender) => sender.senderId === employeeId);
 
-    const result = await db.Assessments.count({
-      where: {
-        userId: employeeId,
-        receiverId: employeeArr.map((e) => e.userId),
-        [Op.and]: [
-          Sequelize.where(Sequelize.fn('MONTH', Sequelize.col('period')), month),
-          Sequelize.where(Sequelize.fn('YEAR', Sequelize.col('period')), year),
-        ],
-      },
-    });
-
-    if (result < employeeArr.length) return { isDone: false };
-
-    return { isDone: true };
+    return {
+      userId: filteredReceivers.receiverId,
+      email: filteredReceivers.email,
+      name: filteredReceivers.name,
+      position: filteredReceivers.position,
+      workDate: filteredReceivers.workDate,
+      period: filteredReceivers.period,
+      receivedAssessments: filteredReceivers.senders,
+      sendedAssessments: filteredSenders.receivers,
+    };
   }
 
-  async assessmentCheckByEmployee(userId, receiverId) {
-    const criteria = await this.getCriteria();
-    const month = new Date().getMonth() + 1;
-    const year = new Date().getFullYear();
-    const result = await db.Assessments.count({
-      where: {
-        userId,
-        receiverId,
-        criterionId: criteria.map((e) => e.criteriaId),
-        [Op.and]: [
-          Sequelize.where(Sequelize.fn('MONTH', Sequelize.col('period')), month),
-          Sequelize.where(Sequelize.fn('YEAR', Sequelize.col('period')), year),
-        ],
-      },
+  async assessmentsCheckByHr(period) {
+    const assessments = await this.getAssessmentsPerPeriod(period, true, false);
+
+    const finishedAssessments = [];
+    const unfinishedAssessments = [];
+
+    assessments.map((e) => {
+      e.receivers.map((value) => {
+        if (!value.assessments.length) {
+          unfinishedAssessments.push({
+            userId: e.senderId,
+            receiverId: value.receiverId,
+            email: value.email,
+            name: value.name,
+            position: value.position,
+            workDate: value.workDate,
+          });
+        } else {
+          finishedAssessments.push({
+            userId: e.senderId,
+            receiverId: value.receiverId,
+            email: value.email,
+            name: value.name,
+            position: value.position,
+            workDate: value.workDate,
+          });
+        }
+        return true;
+      });
+      return true;
     });
 
-    if (result < criteria.length) return { isDone: false };
+    return assessments.map((e) => ({
+      userId: e.senderId,
+      email: e.email,
+      name: e.name,
+      position: e.position,
+      workDate: e.workDate,
+      period: e.period,
+      finishedAssessment: finishedAssessments.filter((user) => user.userId === e.senderId),
+      unfinishedAssessment: unfinishedAssessments.filter((user) => user.userId === e.senderId),
+    }));
+  }
 
-    return { isDone: true };
+  async assessmentCheckByEmployee(period, employeeId) {
+    const assessments = await this.getAssessmentsPerPeriod(period, true, false);
+    const findEmployeeAssessment = assessments
+      .find((assessment) => assessment.senderId === employeeId);
+
+    const finishedAssessments = [];
+    const unfinishedAssessments = [];
+
+    findEmployeeAssessment.receivers.forEach((receiver) => {
+      if (!receiver.assessments.length) {
+        unfinishedAssessments.push({
+          receiverId: receiver.receiverId,
+          email: receiver.email,
+          name: receiver.name,
+          position: receiver.position,
+          workDate: receiver.workDate,
+        });
+      } else {
+        finishedAssessments.push({
+          receiverId: receiver.receiverId,
+          email: receiver.email,
+          name: receiver.name,
+          position: receiver.position,
+          workDate: receiver.workDate,
+          assessments: receiver.assessments,
+        });
+      }
+      return true;
+    });
+
+    return {
+      userId: findEmployeeAssessment.senderId,
+      email: findEmployeeAssessment.email,
+      name: findEmployeeAssessment.name,
+      position: findEmployeeAssessment.position,
+      workDate: findEmployeeAssessment.workDate,
+      period: findEmployeeAssessment.period,
+      finishedAssessment: finishedAssessments,
+      unfinishedAssessment: unfinishedAssessments,
+    };
+  }
+
+  async getAssessmentTotalAllEmployeePerPeriod(period) {
+    const [criteria, result] = await Promise.all([
+      this._criteriaServices.getAllCriteria(),
+      this.getAssessmentsPerPeriod(period, true),
+
+    ]);
+    const total = (senders, criterionId) => {
+      const totalAssessment = [];
+      senders.forEach((sender) => {
+        sender.assessments.forEach((assessment) => {
+          if (assessment.criterionId === criterionId) {
+            totalAssessment.push(assessment.point);
+          }
+        });
+      });
+      return totalAssessment.reduce((a, b) => a + b, 0);
+    };
+
+    return result.map((e) => ({
+      userId: e.receiverId,
+      email: e.email,
+      name: e.name,
+      period,
+      position: e.position,
+      workDate: e.workDate,
+      assessments: Object.assign({}, ...criteria.map((criterion) => ({
+        [criterion.name]: total(e.senders, criterion.criteriaId),
+      }))),
+    }));
+  }
+
+  async getAssessmentTotalOneEmployeePerPeriod(period, employeeId) {
+    const result = await this.getAssessmentTotalAllEmployeePerPeriod(period);
+    const filteredResult = result.filter((e) => e.userId === employeeId);
+
+    return filteredResult;
   }
 
   async updateAssessment(newAssessment) {
@@ -271,8 +328,10 @@ class AssessmentServices {
       );
 
       if (result < 1) {
-        throw new NotFoundError('Assessment not found');
+        this.createAssessment(newAssessment);
       }
+
+      await this._cacheServices.delete('assessments');
 
       return result;
     } catch (err) {
@@ -287,6 +346,20 @@ class AssessmentServices {
         [Op.or]: [{ userId: employeeId }, { receiverId: employeeId }],
       },
     });
+
+    await this._cacheServices.delete('assessments');
+
+    return result;
+  }
+
+  async deleteEmployeeAssessmentsCriteriaReason(criterionId) {
+    const result = await db.Assessments.destroy({
+      where: {
+        criterionId,
+      },
+    });
+
+    await this._cacheServices.delete('assessments');
 
     return result;
   }

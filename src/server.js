@@ -6,6 +6,7 @@ const userRoutes = require('./routes/userRoutes');
 const assessmentRoutes = require('./routes/assessmentRoutes');
 const authenticationRoutes = require('./routes/authenticationRoutes');
 const criteraRoutes = require('./routes/criteriaRoutes');
+const emailRoutes = require('./routes/emailRoutes');
 
 const deserializeUser = require('./middleware/deserializeUser');
 const errorControllers = require('./middleware/error');
@@ -19,12 +20,13 @@ app.use(cookieParser());
 
 app.use(deserializeUser);
 
-app.use(cors());
+app.use(cors({ credentials: true }));
 
 app.use('/api/auth', authenticationRoutes);
 app.use('/api', userRoutes);
 app.use('/api/assessments', assessmentRoutes);
 app.use('/api/criteria', criteraRoutes);
+app.use('/api/email/', emailRoutes);
 
 app.get('/error', (req, res) => {
   res.status(404).send('Oops, not found!');

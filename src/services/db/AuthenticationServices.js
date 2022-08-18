@@ -53,6 +53,7 @@ class AuthenticationServices {
             model: db.Users,
             require: true,
             attributes: ['name', 'email'],
+            paranoid: false,
           },
         ],
       });
@@ -110,6 +111,26 @@ class AuthenticationServices {
     } catch (err) {
       throw new InvariantError(`Failed to update password. ${err.message}`);
     }
+  }
+
+  async resetPassword(userId) {
+    const resettedPassword = Math.random().toString(36).substring(2, 7);
+    const result = await db.Users.update(
+      {
+        password: resettedPassword,
+      },
+      {
+        where: {
+          userId,
+        },
+      },
+    );
+
+    if (!result) {
+      throw new InvariantError('Failed to reset password');
+    }
+
+    return resettedPassword;
   }
 
   async verifyAccess(userId, roleLevel) {

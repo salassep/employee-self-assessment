@@ -8,6 +8,7 @@ const userControllers = new UserControllers();
 const userRoleControllers = new UserRoleControllers();
 
 router.get('/users', requireUser, userControllers.getAllUsers); // Get all users
+router.get('/users/myId', requireUser, userControllers.getUserId); // Get all users
 router.get('/users/:id', requireUser, userControllers.getUserById); // Get user by id
 router.get('/users/roles/:roleName', requireUser, userControllers.getUsersByRole); // Get users by role
 router.get('/roles', requireUser, userRoleControllers.getRoles); // Get all roles
