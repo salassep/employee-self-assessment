@@ -1,6 +1,8 @@
 const autoBind = require('auto-bind');
-const { Op, Sequelize } = require('sequelize');
+
+const { Op } = require('sequelize');
 const db = require('../../database/models');
+
 const InvariantError = require('../../exceptions/InvariantError');
 const NotFoundError = require('../../exceptions/NotFoundError');
 const UserServices = require('./UserServices');
@@ -17,22 +19,34 @@ class AssessmentServices {
     autoBind(this);
   }
 
+  getSixMonthsPeriods(date = new Date()) {
+    const firstSemester = [0, 1, 2, 3, 4, 5];
+    const startPeriod = firstSemester.includes(date.getMonth()) ? '01-01' : '07-01';
+    const endPeriod = startPeriod === '01-01' ? '06-30' : '12-31';
+
+    return { startPeriod, endPeriod };
+  }
+
   async createAssessment(newAssessment) {
     const createdAt = new Date();
     const updatedAt = createdAt;
-    const month = createdAt.getMonth() + 1;
     const year = createdAt.getFullYear();
     const period = createdAt.toISOString().split('T')[0];
+    const { startPeriod, endPeriod } = this.getSixMonthsPeriods(createdAt);
+    console.log(startPeriod, endPeriod);
 
     const checkAssessment = await db.Assessments.count({
       where: {
         criterionId: newAssessment.criterionId,
         userId: newAssessment.userId,
         receiverId: newAssessment.receiverId,
-        [Op.and]: [
-          Sequelize.where(Sequelize.fn('MONTH', Sequelize.col('period')), month),
-          Sequelize.where(Sequelize.fn('YEAR', Sequelize.col('period')), year),
-        ],
+        // [Op.and]: [
+        //   Sequelize.where(Sequelize.fn('MONTH', Sequelize.col('period')), month),
+        //   Sequelize.where(Sequelize.fn('YEAR', Sequelize.col('period')), year),
+        // ],
+        period: {
+          [Op.between]: [`${year}-${startPeriod}`, `${year}-${endPeriod}`],
+        },
       },
     });
 
@@ -120,17 +134,20 @@ class AssessmentServices {
   }
 
   async getAssessmentsPerPeriod(period, isModelResult = false, isReceivers = true) {
-    const [, month, year] = period.split('-');
+    const [day, month, year] = period.split('-');
+    const { startPeriod } = this.getSixMonthsPeriods(new Date(`${year}-${month}-${day}`));
+    const sixMonthsPeriod = startPeriod === '01-01' ? [0, 1, 2, 3, 4, 5] : [6, 7, 8, 9, 10, 11];
     const assessments = await this.getAllAssessments();
     const result = assessments
-      .filter((e) => new Date(e.period)
-        .getMonth() + 1 === +month && new Date(e.period)
+      .filter((e) => sixMonthsPeriod.includes(new Date(e.period)
+        .getMonth()) && new Date(e.period)
         .getFullYear() === +year);
 
     if (isModelResult) {
       const users = await this._userService.getAllUsers();
 
       this._resultModel.data = assessments;
+      this._resultModel.periods = sixMonthsPeriod;
 
       const modelResult = isReceivers
         ? this._resultModel.modelPerPeriodPerReceiver(users, +month, +year)
@@ -270,10 +287,9 @@ class AssessmentServices {
   }
 
   async getAssessmentTotalAllEmployeePerPeriod(period) {
-    const [criteria, result] = await Promise.all([
+    const [criteria, assessments] = await Promise.all([
       this._criteriaServices.getAllCriteria(),
       this.getAssessmentsPerPeriod(period, true),
-
     ]);
     const total = (senders, criterionId) => {
       const totalAssessment = [];
@@ -287,7 +303,7 @@ class AssessmentServices {
       return totalAssessment.reduce((a, b) => a + b, 0);
     };
 
-    return result.map((e) => ({
+    const result = assessments.map((e) => ({
       userId: e.receiverId,
       email: e.email,
       name: e.name,
@@ -298,6 +314,17 @@ class AssessmentServices {
         [criterion.name]: total(e.senders, criterion.criteriaId),
       }))),
     }));
+
+    result.forEach((e, index) => {
+      const maxScore = Math.max(...Object.values(e.assessments));
+      const minScroe = Math.min(...Object.values(e.assessments));
+      result[index].maxCriteria = Object.keys(e.assessments)
+        .filter((key) => e.assessments[key] === maxScore);
+      result[index].minCriteria = Object.keys(e.assessments)
+        .filter((key) => e.assessments[key] === minScroe);
+    });
+
+    return result;
   }
 
   async getAssessmentTotalOneEmployeePerPeriod(period, employeeId) {
@@ -307,9 +334,52 @@ class AssessmentServices {
     return filteredResult;
   }
 
+  async getAssessmentTotalPerCriteriaPerPeriod(period) {
+    const [criteria, result] = await Promise.all([
+      this._criteriaServices.getAllCriteria(),
+      this.getAssessmentTotalAllEmployeePerPeriod(period),
+    ]);
+
+    const total = (criterionName) => {
+      const totalAssessment = [];
+      result.forEach((assessment) => {
+        totalAssessment.push(assessment.assessments[criterionName]);
+      });
+      return totalAssessment.reduce((a, b) => a + b, 0);
+    };
+
+    return Object.assign({}, ...criteria.map((criterion) => ({
+      [criterion.name]: total(criterion.name),
+    })));
+  }
+
+  async getMaxMinPerCriteriaPerPeriod(period) {
+    const [criteria, result] = await Promise.all([
+      this._criteriaServices.getAllCriteria(),
+      this.getAssessmentTotalAllEmployeePerPeriod(period),
+    ]);
+
+    const getUserWithHigh = (criterionName) => {
+      const maxScore = Math.max(...result.map((e) => e.assessments[criterionName]));
+      const minScore = Math.min(...result.map((e) => e.assessments[criterionName]));
+      const maxScoreUser = result.filter((elem) => elem.assessments[criterionName] === maxScore);
+      const minScoreUser = result.filter((elem) => elem.assessments[criterionName] === minScore);
+
+      return {
+        maxScoreUser: maxScoreUser.map((e) => e.name),
+        minScoreUser: minScoreUser.map((e) => e.name),
+      };
+    };
+
+    return Object.assign({}, ...criteria.map((criterion) => ({
+      [criterion.name]: getUserWithHigh(criterion.name),
+    })));
+  }
+
   async updateAssessment(newAssessment) {
     try {
-      const [, month, year] = newAssessment.period.split('-');
+      const [day, month, year] = newAssessment.period.split('-');
+      const { startPeriod, endPeriod } = this.getSixMonthsPeriods(new Date(`${year}-${month}-${day}`));
       const result = await db.Assessments.update(
         {
           point: newAssessment.point,
@@ -319,16 +389,19 @@ class AssessmentServices {
             userId: newAssessment.userId,
             receiverId: newAssessment.receiverId,
             criterionId: newAssessment.criterionId,
-            [Op.and]: [
-              Sequelize.where(Sequelize.fn('MONTH', Sequelize.col('period')), month),
-              Sequelize.where(Sequelize.fn('YEAR', Sequelize.col('period')), year),
-            ],
+            // [Op.and]: [
+            //   Sequelize.where(Sequelize.fn('MONTH', Sequelize.col('period')), month),
+            //   Sequelize.where(Sequelize.fn('YEAR', Sequelize.col('period')), year),
+            // ],
+            period: {
+              [Op.between]: [`${year}-${startPeriod}`, `${year}-${endPeriod}`],
+            },
           },
         },
       );
 
       if (result < 1) {
-        this.createAssessment(newAssessment);
+        await this.createAssessment(newAssessment);
       }
 
       await this._cacheServices.delete('assessments');

@@ -230,6 +230,27 @@ class AssessmentControllers {
     });
   }
 
+  async getAssessmentTotalPerCriteriaPerPeriod(req, res) {
+    const result = await this._service
+      .getAssessmentTotalPerCriteriaPerPeriod(req.params.period);
+
+    return res.status(201).send({
+      statusCode: 201,
+      status: 'OK',
+      data: result,
+    });
+  }
+
+  async getMixMinPerCriteriaPerPeriod(req, res) {
+    const result = await this._service.getMaxMinPerCriteriaPerPeriod(req.params.period);
+
+    return res.status(201).send({
+      statusCode: 201,
+      status: 'OK',
+      data: result,
+    });
+  }
+
   async updateAssessment(req, res, next) {
     const { params, body } = req;
 

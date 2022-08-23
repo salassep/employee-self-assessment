@@ -1,13 +1,22 @@
 class ResultModel {
-  constructor(data) {
+  constructor(data, periods) {
     this.data = data;
+    this.periods = periods;
   }
 
   filteredAssessments(receiverId, senderId, month, year) {
-    return this.data.filter((e) => new Date(e.period).getMonth() + 1 === month
-    && new Date(e.period).getFullYear() === year
-    && e.receiverId === receiverId
-    && e.userId === senderId);
+    const result = this.periods
+      ? this.data.filter((e) => this.periods
+        .includes(new Date(e.period).getMonth())
+        && new Date(e.period).getFullYear() === year
+        && e.receiverId === receiverId
+        && e.userId === senderId)
+      : this.data.filter((e) => new Date(e.period).getMonth() + 1 === month
+        && new Date(e.period).getFullYear() === year
+        && e.receiverId === receiverId
+        && e.userId === senderId);
+
+    return result;
   }
 
   modelPerReceiver(users, months, years) {

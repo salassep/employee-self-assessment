@@ -19,6 +19,8 @@ router.get('/admin-check/:period', requireUser, assessmentController.assessmentC
 router.get('/employee-check/:period', requireUser, assessmentController.assessmentCheckByEmployee);
 router.get('/total/:period', requireUser, assessmentController.getAssessmentTotalAllEmployeePerPeriod);
 router.get('/total/:period/:employeeId', requireUser, assessmentController.getAssessmentTotalOneEmployeePerPeriod);
+router.get('/criteria/total/:period', requireUser, assessmentController.getAssessmentTotalPerCriteriaPerPeriod);
+router.get('/criteria/max-min/:period', requireUser, assessmentController.getMixMinPerCriteriaPerPeriod);
 router.get('/report/:period', requireUser, exportController.exportExcel);
 
 router.post('/:employeeId', requireUser, assessmentController.createAssessment); // Create an assessment
