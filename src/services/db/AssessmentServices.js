@@ -122,6 +122,7 @@ class AssessmentServices {
       ];
 
       this._resultModel.data = result;
+      this._resultModel.periods = 0;
 
       const resultModel = isReceivers
         ? this._resultModel.modelPerReceiver(users, months, years)

@@ -26,14 +26,16 @@ class AuthenticationControllers {
         maxAge: 300000,
         httpOnly: true,
         sameSite: 'none',
-        domain: '192.168.43.63',
+        // secure: true,
+        // domain: '192.168.43.63',
       });
 
       res.cookie('refreshToken', refreshToken, {
         maxAge: 8.64e7,
         httpOnly: true,
         sameSite: 'none',
-        domain: '192.168.43.63',
+        // secure: true,
+        // domain: '192.168.43.63',
       });
 
       const userRole = await this._userRoleService.getUserRoles(result.userId);
