@@ -91,6 +91,14 @@ class AssessmentServices {
             attributes: {
               exclude: ['createdAt', 'updatedAt', 'deletedAt', 'userId', 'password'],
             },
+            include: [
+              {
+                attributes: {
+                  exclude: ['role_id', 'user_id', 'userRoleId', 'userId'],
+                },
+                model: db.User_roles,
+              },
+            ],
           },
           {
             model: db.Users,
@@ -99,6 +107,14 @@ class AssessmentServices {
             attributes: {
               exclude: ['createdAt', 'updatedAt', 'deletedAt', 'userId', 'password'],
             },
+            include: [
+              {
+                attributes: {
+                  exclude: ['role_id', 'user_id', 'userRoleId', 'userId'],
+                },
+                model: db.User_roles,
+              },
+            ],
           },
           {
             model: db.Criteria,
@@ -175,6 +191,7 @@ class AssessmentServices {
       name: filteredReceivers.name,
       position: filteredReceivers.position,
       workDate: filteredReceivers.workDate,
+      roles: filteredReceivers.roles,
       receivedAssessments: filteredReceivers.periods,
       sendedAssessments: filteredSenders.periods,
     };
@@ -189,6 +206,8 @@ class AssessmentServices {
     const filteredReceivers = receivers.find((receiver) => receiver.receiverId === employeeId);
     const filteredSenders = senders.find((sender) => sender.senderId === employeeId);
 
+    console.log();
+
     return {
       userId: filteredReceivers.receiverId,
       email: filteredReceivers.email,
@@ -196,6 +215,7 @@ class AssessmentServices {
       position: filteredReceivers.position,
       workDate: filteredReceivers.workDate,
       period: filteredReceivers.period,
+      roles: filteredReceivers.roles,
       receivedAssessments: filteredReceivers.senders,
       sendedAssessments: filteredSenders.receivers,
     };
@@ -215,6 +235,7 @@ class AssessmentServices {
             receiverId: value.receiverId,
             email: value.email,
             name: value.name,
+            roles: value.roles,
             position: value.position,
             workDate: value.workDate,
           });
@@ -224,6 +245,7 @@ class AssessmentServices {
             receiverId: value.receiverId,
             email: value.email,
             name: value.name,
+            roles: value.roles,
             position: value.position,
             workDate: value.workDate,
           });
@@ -240,6 +262,7 @@ class AssessmentServices {
       position: e.position,
       workDate: e.workDate,
       period: e.period,
+      roles: e.roles,
       finishedAssessment: finishedAssessments.filter((user) => user.userId === e.senderId),
       unfinishedAssessment: unfinishedAssessments.filter((user) => user.userId === e.senderId),
     }));
@@ -261,6 +284,7 @@ class AssessmentServices {
           name: receiver.name,
           position: receiver.position,
           workDate: receiver.workDate,
+          roles: receiver.roles,
         });
       } else {
         finishedAssessments.push({
@@ -269,6 +293,7 @@ class AssessmentServices {
           name: receiver.name,
           position: receiver.position,
           workDate: receiver.workDate,
+          roles: receiver.roles,
           assessments: receiver.assessments,
         });
       }
@@ -282,6 +307,7 @@ class AssessmentServices {
       position: findEmployeeAssessment.position,
       workDate: findEmployeeAssessment.workDate,
       period: findEmployeeAssessment.period,
+      roles: findEmployeeAssessment.roles,
       finishedAssessment: finishedAssessments,
       unfinishedAssessment: unfinishedAssessments,
     };
@@ -311,6 +337,7 @@ class AssessmentServices {
       period,
       position: e.position,
       workDate: e.workDate,
+      roles: e.roles,
       assessments: Object.assign({}, ...criteria.map((criterion) => ({
         [criterion.name]: total(e.senders, criterion.criteriaId),
       }))),

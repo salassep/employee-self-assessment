@@ -24,6 +24,7 @@ class ResultModel {
       receiverId: receiver.userId,
       email: receiver.email,
       name: receiver.name,
+      roles: receiver.roles[0],
       position: receiver.position,
       workDate: receiver.workDate,
       periods: years.map((year) => months.map((month) => ({
@@ -32,6 +33,7 @@ class ResultModel {
           senderId: sender.userId,
           email: sender.email,
           name: sender.name,
+          roles: sender.roles[0],
           position: sender.position,
           workDate: sender.workDate,
           assessments: this.filteredAssessments(receiver.userId, sender.userId, month, year)
@@ -55,6 +57,7 @@ class ResultModel {
       senderId: sender.userId,
       email: sender.email,
       name: sender.name,
+      roles: sender.roles[0],
       position: sender.position,
       workDate: sender.workDate,
       periods: years.map((year) => months.map((month) => ({
@@ -63,6 +66,7 @@ class ResultModel {
           receiverId: receiver.userId,
           email: receiver.email,
           name: receiver.name,
+          roles: receiver.roles[0],
           position: receiver.position,
           workDate: receiver.workDate,
           assessments: this.filteredAssessments(receiver.userId, sender.userId, month, year)
@@ -86,6 +90,7 @@ class ResultModel {
       receiverId: receiver.userId,
       email: receiver.email,
       name: receiver.name,
+      roles: receiver.roles[0],
       position: receiver.position,
       workDate: receiver.workDate,
       period: `${month}-${year}`,
@@ -93,6 +98,7 @@ class ResultModel {
         senderId: sender.userId,
         email: sender.email,
         name: sender.name,
+        roles: sender.roles[0],
         position: sender.position,
         workDate: sender.workDate,
         assessments: this.filteredAssessments(receiver.userId, sender.userId, month, year)
@@ -115,6 +121,7 @@ class ResultModel {
       senderId: sender.userId,
       email: sender.email,
       name: sender.name,
+      roles: sender.roles[0],
       position: sender.position,
       workDate: sender.workDate,
       period: `${month}-${year}`,
@@ -122,6 +129,7 @@ class ResultModel {
         receiverId: receiver.userId,
         email: receiver.email,
         name: receiver.name,
+        roles: receiver.roles[0],
         position: receiver.position,
         workDate: receiver.workDate,
         assessments: this.filteredAssessments(receiver.userId, sender.userId, month, year)

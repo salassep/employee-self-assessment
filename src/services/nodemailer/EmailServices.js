@@ -15,7 +15,7 @@ const EmailService = {
     });
 
     const mailOptions = {
-      from: 'ts9871652@gmail.com',
+      from: process.env.EMAIL_USERNAME,
       to: receiver,
       subject: 'Self Assessment Reminder',
       html: htmlContent,
