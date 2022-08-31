@@ -388,14 +388,21 @@ class AssessmentServices {
     ]);
 
     const getUserWithHigh = (criterionName) => {
-      const maxScore = Math.max(...result.map((e) => e.assessments[criterionName]));
-      const minScore = Math.min(...result.map((e) => e.assessments[criterionName]));
-      const maxScoreUser = result.filter((elem) => elem.assessments[criterionName] === maxScore);
-      const minScoreUser = result.filter((elem) => elem.assessments[criterionName] === minScore);
+      const maxScore = Math.max(...result.map((e) => (e.roles.roleId === 3
+        ? e.assessments[criterionName] : 0)));
+      const minScore = Math.min(...result.map((e) => (e.roles.roleId === 3
+        ? e.assessments[criterionName] : maxScore)));
+
+      const maxScoreUser = result.filter((elem) => elem.assessments[criterionName] === maxScore
+        && elem.roles.roleId === 3);
+      const minScoreUser = result.filter((elem) => elem.assessments[criterionName] === minScore
+        && elem.roles.roleId === 3);
 
       return {
-        maxScoreUser: maxScoreUser.map((e) => e.name),
-        minScoreUser: minScoreUser.map((e) => e.name),
+        maxScoreUser: maxScoreUser.map((e) => (
+          { name: e.name, roleId: e.roles.roleId, score: maxScore })),
+        minScoreUser: minScoreUser.map((e) => (
+          { name: e.name, roleId: e.roles.roleId, score: minScore })),
       };
     };
 
